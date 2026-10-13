@@ -16,6 +16,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
+    "test:email": "tsx scripts/test-email.ts",
     "lint": "tsc --noEmit"
   },
   "keywords": [
