@@ -5,6 +5,7 @@ import emailService from '../src/server/services/email.service.js';
 
 describe('Scheduler and Email Reminders', () => {
   let testUserId: string;
+  let testUserEmail: string;
   let testContestId: string;
 
   beforeAll(async () => {
@@ -20,6 +21,7 @@ describe('Scheduler and Email Reminders', () => {
       },
     });
     testUserId = user.id;
+    testUserEmail = user.email;
 
     // Enable 2-hour and morning reminders for codeforces
     await prisma.reminderPreference.create({
@@ -81,7 +83,7 @@ describe('Scheduler and Email Reminders', () => {
     // Verify email was generated
     const devEmails = emailService.getDevMailbox();
     const contestEmail = devEmails.find(
-      (e) => e.type === 'REMINDER_2H' && e.contestName?.includes('Round 9999')
+      (e) => e.to === testUserEmail && e.type === 'REMINDER_2H' && e.contestName?.includes('Round 9999')
     );
     expect(contestEmail).toBeDefined();
 
@@ -90,7 +92,7 @@ describe('Scheduler and Email Reminders', () => {
     // For this specific test user and contest, no second email should be dispatched
     const secondEmails = emailService
       .getDevMailbox()
-      .filter((e) => e.type === 'REMINDER_2H' && e.contestName?.includes('Round 9999'));
+      .filter((e) => e.to === testUserEmail && e.type === 'REMINDER_2H' && e.contestName?.includes('Round 9999'));
 
     expect(secondEmails.length).toBe(1); // Still exactly 1 email, no duplicate!
   });

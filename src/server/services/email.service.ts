@@ -20,7 +20,10 @@ class EmailService {
   private provider: 'resend' | 'gmail' | 'smtp' | 'mock' = 'mock';
 
   constructor() {
-    if (config.gmail.user && config.gmail.appPassword) {
+    if (process.env.NODE_ENV === 'test') {
+      this.provider = 'mock';
+      console.log('[EmailService] Running in test mode with mock mailbox.');
+    } else if (config.gmail.user && config.gmail.appPassword) {
       this.provider = 'gmail';
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
