@@ -20,10 +20,7 @@ class EmailService {
   private provider: 'resend' | 'gmail' | 'smtp' | 'mock' = 'mock';
 
   constructor() {
-    if (config.resendApiKey) {
-      this.provider = 'resend';
-      console.log('[EmailService] Configured live email delivery via Resend API.');
-    } else if (config.gmail.user && config.gmail.appPassword) {
+    if (config.gmail.user && config.gmail.appPassword) {
       this.provider = 'gmail';
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -33,6 +30,9 @@ class EmailService {
         },
       });
       console.log(`[EmailService] Configured live email delivery via Gmail (${config.gmail.user}).`);
+    } else if (config.resendApiKey) {
+      this.provider = 'resend';
+      console.log('[EmailService] Configured live email delivery via Resend API.');
     } else if (config.smtp.host && config.smtp.user) {
       this.provider = 'smtp';
       this.transporter = nodemailer.createTransport({
