@@ -1,0 +1,32 @@
+services:
+  mrkcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mrkcp_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - APP_URL=http://localhost:5000
+      - API_URL=http://localhost:5000
+      - DATABASE_URL=file:./prisma/dev.db
+      - JWT_SECRET=production-secret-mrkcp-competitive-programming-min-32-chars
+      - JWT_EXPIRES_IN=7d
+      # Optional SMTP configuration for email reminders (falls back to mock mailbox mode if empty)
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-mrkcp Contests <notifications@mrkcp.dev>}
+      - CONTEST_CRON_SCHEDULE=*/30 * * * *
+      - REMINDER_CRON_SCHEDULE=*/5 * * * *
+    volumes:
+      - mrkcp_data:/app/prisma
+
+volumes:
+  mrkcp_data:
+    driver: local

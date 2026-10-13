@@ -1,0 +1,142 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                   String               @id @default(uuid())
+  email                String               @unique
+  passwordHash         String
+  name                 String
+  isVerified           Boolean              @default(false)
+  verificationToken    String?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  timezone             String               @default("UTC")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  linkedAccounts       LinkedAccount[]
+  reminderPreferences  ReminderPreference[]
+  journalEntries       JournalEntry[]
+  reminderLogs         ReminderLog[]
+}
+
+model LinkedAccount {
+  id               String    @id @default(uuid())
+  userId           String
+  platform         String    // codeforces, atcoder, codechef, cses
+  handle           String
+  isVerified       Boolean   @default(false)
+  verificationCode String
+  verifiedAt       DateTime?
+  lastSyncedAt     DateTime?
+  syncStatus       String    @default("IDLE") // IDLE, SYNCING, SUCCESS, ERROR
+  syncError        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@index([platform, handle])
+}
+
+model ReminderPreference {
+  id           String   @id @default(uuid())
+  userId       String
+  platform     String   // codeforces, atcoder, codechef, etc.
+  enabled      Boolean  @default(true)
+  morningOf    Boolean  @default(true)
+  hoursBefore2 Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+}
+
+model Contest {
+  id              String        @id @default(uuid())
+  platform        String        // codeforces, atcoder, codechef
+  externalId      String
+  name            String
+  url             String
+  startTime       DateTime
+  endTime         DateTime
+  durationSeconds Int
+  phase           String        @default("BEFORE") // BEFORE, CODING, FINISHED
+  rawMetadata     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  reminderLogs    ReminderLog[]
+
+  @@unique([platform, externalId])
+  @@index([platform, startTime])
+  @@index([startTime])
+}
+
+model ReminderLog {
+  id           String   @id @default(uuid())
+  userId       String
+  contestId    String
+  reminderType String   // DAY_OF, HOURS_BEFORE_2
+  sentAt       DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest      Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contestId, reminderType])
+  @@index([userId])
+  @@index([contestId])
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid())
+  userId      String
+  platform    String   // codeforces, atcoder, codechef, cses, leetcode, manual
+  problemId   String   // e.g., 158A, abc280_d, FLOW001, 1068
+  title       String
+  url         String
+  solvedAt    DateTime @default(now())
+  difficulty  String?  // Easy, Medium, Hard, or numeric e.g. 1400
+  rating      Int?
+  tags        String   @default("[]") // JSON string array of tags
+  verdict     String   @default("AC")
+  notes       String?  // Markdown notes / solution approach
+  source      String   @default("MANUAL") // MANUAL, SYNC
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, problemId])
+  @@index([userId, solvedAt])
+  @@index([platform])
+}
+
+model CuratedProblem {
+  id             String   @id @default(uuid())
+  platform       String   // codeforces, atcoder, cses, codechef, leetcode
+  externalId     String
+  title          String
+  url            String
+  topic          String   // Dynamic Programming, Graphs, Binary Search, Trees, Greedy, Strings, Math, Data Structures, Two Pointers, Bit Manipulation
+  difficultyTier String   // Easy, Medium, Hard, Master
+  rating         Int?     // Numeric CP rating (e.g. 800 - 2400)
+  tags           String   @default("[]") // JSON string array
+  orderIndex     Int      @default(0)    // Ordering within topic from easy to hard
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([platform, externalId])
+  @@index([topic, orderIndex])
+  @@index([platform])
+}
