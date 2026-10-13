@@ -12,12 +12,29 @@ export interface DevEmail {
   contestName?: string;
 }
 
+import axios from 'axios';
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private devMailbox: DevEmail[] = [];
+  private provider: 'resend' | 'gmail' | 'smtp' | 'mock' = 'mock';
 
   constructor() {
-    if (config.smtp.host && config.smtp.user) {
+    if (config.resendApiKey) {
+      this.provider = 'resend';
+      console.log('[EmailService] Configured live email delivery via Resend API.');
+    } else if (config.gmail.user && config.gmail.appPassword) {
+      this.provider = 'gmail';
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: config.gmail.user,
+          pass: config.gmail.appPassword,
+        },
+      });
+      console.log(`[EmailService] Configured live email delivery via Gmail (${config.gmail.user}).`);
+    } else if (config.smtp.host && config.smtp.user) {
+      this.provider = 'smtp';
       this.transporter = nodemailer.createTransport({
         host: config.smtp.host,
         port: config.smtp.port,
@@ -27,9 +44,10 @@ class EmailService {
           pass: config.smtp.pass,
         },
       });
-      console.log(`[EmailService] Configured SMTP transporter: ${config.smtp.host}`);
+      console.log(`[EmailService] Configured live email delivery via SMTP (${config.smtp.host}).`);
     } else {
-      console.log('[EmailService] No SMTP credentials provided. Running in dev mock mailbox mode.');
+      this.provider = 'mock';
+      console.log('[EmailService] No live email credentials provided. Running in dev mock mailbox mode.');
     }
   }
 
@@ -50,22 +68,47 @@ class EmailService {
       contestName,
     };
 
-    // Always keep latest 50 emails in dev mailbox for testing/debugging
+    // Always keep latest 50 emails in dev mailbox for history and verification
     this.devMailbox.unshift(devRecord);
     if (this.devMailbox.length > 50) this.devMailbox.pop();
 
-    if (this.transporter) {
+    if (this.provider === 'resend') {
+      try {
+        const from = config.smtp.from.includes('<') ? config.smtp.from : `mrkcp <${config.smtp.from}>`;
+        await axios.post(
+          'https://api.resend.com/emails',
+          {
+            from: from.includes('mrkcp.dev') ? 'onboarding@resend.dev' : from,
+            to: [to],
+            subject,
+            html,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${config.resendApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 10000,
+          }
+        );
+        console.log(`[EmailService Resend] Successfully sent live email to ${to}: "${subject}"`);
+        return true;
+      } catch (error: any) {
+        console.error(`[EmailService Resend] Failed to send email to ${to}:`, error.response?.data || error.message);
+        return false;
+      }
+    } else if (this.transporter) {
       try {
         await this.transporter.sendMail({
-          from: config.smtp.from,
+          from: this.provider === 'gmail' ? config.gmail.user : config.smtp.from,
           to,
           subject,
           html,
         });
-        console.log(`[EmailService] Sent email to ${to}: "${subject}"`);
+        console.log(`[EmailService ${this.provider.toUpperCase()}] Successfully sent live email to ${to}: "${subject}"`);
         return true;
       } catch (error) {
-        console.error(`[EmailService] Failed to send email to ${to}:`, error);
+        console.error(`[EmailService ${this.provider.toUpperCase()}] Failed to send email to ${to}:`, error);
         return false;
       }
     } else {
